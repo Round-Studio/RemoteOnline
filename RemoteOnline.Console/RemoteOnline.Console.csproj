@@ -11,4 +11,16 @@
       <ProjectReference Include="..\RemoteOnline\RemoteOnline.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="easytier-cli.exe">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="easytier-core.exe">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+      <None Update="Packet.dll">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>

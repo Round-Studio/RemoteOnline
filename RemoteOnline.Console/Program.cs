@@ -1,28 +1,38 @@
-﻿using RemoteOnline.Entry;
-using RemoteOnline.Module;
-using RemoteOnline.Parser;
+﻿using System;
+using System.Collections.Generic;
+using RemoteOnline.Core;
 
-class Program
+namespace RemoteOnline.Console
 {
-    static void Main()
+    class Program
     {
-        var forwarder = new TcpForwarder("127.0.0.1",25565,"127.0.0.1", 58126);
-        forwarder.StartAsync();
-        CoreInfo.ETFilePath = @"G:\easytier-windows-x86_64\easytier-core.exe";
-        Console.WriteLine("=== 房间码验证 ===");
-        string roomCodeStr = "U/7RBQ-NETH-WMJ5-L22V";
-        
-        try
+        static void Main(string[] args)
         {
-            var roomCode = new RoomCodeParser(roomCodeStr);
-            Console.WriteLine("✅ 房间码验证成功！");
-            Console.WriteLine(roomCode.ToString());
+            System.Console.WriteLine("基于 EasyTier 的联机模块");
+            
+            System.Console.WriteLine("1. 创建房间");
+            System.Console.WriteLine("2. 加入房间");
 
-            EasyTierManager.JoinEasyTierNetwork(roomCode.NetworkName, roomCode.NetworkKey);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ 房间码验证失败: {ex.Message}");
+            System.Console.Write("选择：");
+            var key = System.Console.ReadLine();
+            if (key == "1")
+            {
+                System.Console.Write("本地端口：");
+                var port = System.Console.ReadLine();
+
+                var server = new OnlineService(@"easytier-core.exe");
+                server.CreateRoom(int.Parse(port));
+                server.Run();
+            }
+            else
+            {
+                System.Console.Write("联机码：");
+                var code = System.Console.ReadLine();
+
+                var server = new OnlineService(@"easytier-core.exe");
+                server.LinkRoom(code);
+                server.Run();
+            }
         }
     }
 }
