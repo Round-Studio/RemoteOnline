@@ -10,6 +10,7 @@ namespace RemoteOnline.Core;
 public class OnlineService
 {
     public ServiceStatus Status { get; private set; }
+    public string Name { get; set; }
     public string EasytierPath { get; set; } = string.Empty;
     public bool IsRunning { get; private set; } = false;
     public string OnlineCode { get;private set; } = string.Empty;
