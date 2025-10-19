@@ -14,8 +14,8 @@ public class RoomCore
     public string HostHomeName { get; private set; }
     public int ScfServerPort { get; private set; } = new Random().Next(10000, 60000);
     public Process EasytierProcess { get; private set; }
-    public string HostPlayerName { get; private set; }
-    public string HostMachineId { get; private set; }
+    public string HostPlayerName { get; set; }
+    public string HostMachineId { get; set; }
     private RoomScfService ServerService { get; set; }
     private RoomScfClient ClientService { get; set; }
 

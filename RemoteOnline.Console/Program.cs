@@ -9,6 +9,8 @@ class Program
         RoomCore core = new RoomCore(ServiceStatus.Client);
         core.EasyTierPath = "easytier-core.exe";
         core.EasyTierCliPath = "easytier-cli.exe";
-        await core.CreateRoom(25565);
+        core.HostPlayerName = "aaa";
+        core.HostMachineId = "a";
+        await core.CreateRoom(53305);
     }
 }
