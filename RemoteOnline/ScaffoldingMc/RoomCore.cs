@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using RemoteOnline.Enum;
 
@@ -64,7 +65,6 @@ public class RoomCore
         EasytierProcess.WaitForExit();
     }
 
-
     // 使用锁防止重复执行
     private readonly object _setupLock = new object();
     private bool _isScfClientSetup = false;
@@ -76,7 +76,26 @@ public class RoomCore
 
         var codeBody = new RoomCode(RoomCode);
 
-        // 启动 EasyTier 进程
+        // 第一步：启动基础 EasyTier 连接
+        await StartEasyTierConnection(codeBody);
+
+        // 第二步：等待网络连接并获取主机信息
+        await WaitForHostConnection();
+
+        // 第三步：重启 EasyTier 并设置端口转发
+        await RestartEasyTierWithPortForwarding(codeBody);
+
+        // 第四步：连接 SCF 客户端服务
+        await ConnectScfClientService();
+    }
+
+    private async Task StartEasyTierConnection(RoomCode codeBody)
+    {
+        Console.WriteLine("启动 EasyTier 基础连接...");
+
+        // 先清理可能存在的旧进程
+        await StopEasyTierProcess();
+
         EasytierProcess = new Process()
         {
             StartInfo = new ProcessStartInfo()
@@ -94,217 +113,271 @@ public class RoomCore
         EasytierProcess.Start();
         IsRunning = true;
 
-        EasytierProcess.OutputDataReceived += async (sender, args) =>
+        Console.WriteLine("EasyTier 基础连接已启动");
+    }
+
+    private async Task WaitForHostConnection()
+    {
+        Console.WriteLine("等待主机连接...");
+
+        var hostFoundTaskCompletionSource = new TaskCompletionSource<bool>();
+        var timeoutTask = Task.Delay(30000); // 30秒超时
+
+        void OnOutputDataReceived(object sender, DataReceivedEventArgs args)
         {
             if (!string.IsNullOrEmpty(args.Data))
             {
                 Console.WriteLine(args.Data);
 
-                // 检测到新对等节点添加，并且是服务器节点
-                if (args.Data.Contains("new peer added") && args.Data.Contains("scaffolding-mc-server"))
+                // 检测到服务器节点
+                if (args.Data.Contains("new peer added"))
                 {
-                    // 使用锁和标志位防止重复执行
-                    lock (_setupLock)
-                    {
-                        if (_isScfClientSetup) return;
-                        _isScfClientSetup = true;
-                    }
-
-                    await Task.Delay(3000); // 给网络更多时间稳定
-
+                    Console.WriteLine("检测到服务器节点，开始解析主机信息...");
+                    
+                    // 解析主机名称
                     try
                     {
-                        await SetupScfClient();
+                        HostHomeName = ExtractHostNameFromOutput(args.Data);
+                        if (!string.IsNullOrEmpty(HostHomeName))
+                        {
+                            Console.WriteLine($"发现主机: {HostHomeName}");
+                            hostFoundTaskCompletionSource.TrySetResult(true);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"设置 SCF 客户端失败: {ex.Message}");
-                        // 重置标志以便重试
-                        lock (_setupLock)
-                        {
-                            _isScfClientSetup = false;
-                        }
+                        Console.WriteLine($"解析主机信息失败: {ex.Message}");
                     }
                 }
             }
-        };
+        }
 
+        EasytierProcess.OutputDataReceived += OnOutputDataReceived;
         EasytierProcess.BeginOutputReadLine();
         EasytierProcess.BeginErrorReadLine();
 
-        // 启动后尝试设置 SCF 客户端
-        await Task.Run(async () =>
+        // 等待主机连接或超时
+        var completedTask = await Task.WhenAny(hostFoundTaskCompletionSource.Task, timeoutTask);
+
+        // 移除事件处理器
+        EasytierProcess.OutputDataReceived -= OnOutputDataReceived;
+
+        if (completedTask == timeoutTask)
         {
-            await Task.Delay(8000); // 等待更长时间确保网络就绪
-
-            lock (_setupLock)
-            {
-                if (_isScfClientSetup) return;
-                _isScfClientSetup = true;
-            }
-
-            try
-            {
-                await SetupScfClient();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"初始设置 SCF 客户端失败: {ex.Message}");
-                lock (_setupLock)
-                {
-                    _isScfClientSetup = false;
-                }
-            }
-        });
-    }
-
-    private async Task SetupScfClient()
-    {
-        Console.WriteLine("开始设置 SCF 客户端...");
-
-        // 步骤1: 获取主机名称
-        if (string.IsNullOrEmpty(HostHomeName))
-        {
-            HostHomeName = await GetHostRoomName();
-            if (string.IsNullOrEmpty(HostHomeName))
-            {
-                throw new Exception("无法找到主机房间名称");
-            }
-
-            Console.WriteLine($"发现主机: {HostHomeName}");
+            throw new Exception("等待主机连接超时");
         }
 
-        // 步骤2: 获取 SCF 服务器端口
+        if (string.IsNullOrEmpty(HostHomeName))
+        {
+            throw new Exception("无法获取主机信息");
+        }
+
+        // 给网络一点时间稳定
+        await Task.Delay(3000);
+    }
+
+    private async Task RestartEasyTierWithPortForwarding(RoomCode codeBody)
+    {
+        Console.WriteLine("重启 EasyTier 并设置端口转发...");
+
+        // 获取 SCF 服务器端口
         int scfPort = GetHostNamePort();
         Console.WriteLine($"SCF 服务器端口: {scfPort}");
 
-        // 步骤3: 设置端口转发
-        await SetupPortForwarding(scfPort);
+        // 停止当前进程
+        await StopEasyTierProcess();
 
-        // 步骤4: 等待端口转发生效
-        await Task.Delay(2000);
-
-        // 步骤5: 连接 SCF 客户端服务
-        await ConnectScfClientService();
-    }
-
-    private async Task<string> GetHostRoomName()
-    {
-        var retryCount = 0;
-        const int maxRetries = 8;
-
-        while (retryCount < maxRetries)
+        // 重新启动 EasyTier，包含端口转发参数
+        EasytierProcess = new Process()
         {
-            try
+            StartInfo = new ProcessStartInfo()
             {
-                var peerOutput = RunCliCommand("peer");
-                Console.WriteLine($"Peer 命令输出: {peerOutput}");
-
-                var peerLines = peerOutput.Split('\n');
-
-                // 查找包含服务器标识的行
-                var hostLine = peerLines.FirstOrDefault(x =>
-                    x.Contains("scaffolding-mc-server") &&
-                    !x.Contains("offline"));
-
-                if (!string.IsNullOrEmpty(hostLine))
-                {
-                    Console.WriteLine($"找到主机行: {hostLine}");
-
-                    // 更健壮的解析逻辑
-                    var parts = hostLine.Split('|');
-
-                    if (parts.Length >= 3)
-                    {
-                        var hostName = parts[2].Trim();
-                        if (!string.IsNullOrEmpty(hostName) && hostName.StartsWith("scaffolding-mc-server"))
-                        {
-                            return hostName;
-                        }
-                    }
-
-                    // 备用解析方法：直接搜索主机名模式
-                    var match = System.Text.RegularExpressions.Regex.Match(hostLine, @"scaffolding-mc-server-\d+");
-                    if (match.Success)
-                    {
-                        return match.Value;
-                    }
-                }
-
-                retryCount++;
-                if (retryCount < maxRetries)
-                {
-                    Console.WriteLine($"未找到主机，等待重试... ({retryCount}/{maxRetries})");
-                    await Task.Delay(3000);
-                }
+                FileName = EasyTierPath,
+                Arguments =
+                    $"--network-name \"{codeBody.NetworkName}\" --network-secret \"{codeBody.NetworkKey}\" -p tcp://public.easytier.top:11010 --no-tun -r 0.0.0.0:18917 --port-forward tcp 127.0.0.1:{ScfServerPort} 10.144.144.1:{scfPort}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"获取主机名称时出错: {ex.Message}");
-                retryCount++;
-                if (retryCount < maxRetries)
-                {
-                    await Task.Delay(3000);
-                }
-            }
+        };
+
+        EasytierProcess.Start();
+        IsRunning = true;
+
+        Console.WriteLine($"EasyTier 已重启，端口转发: 127.0.0.1:{ScfServerPort} -> 10.144.144.1:{scfPort}");
+
+        // 等待进程启动和网络稳定
+        await Task.Delay(20000);
+
+        // 验证端口转发是否工作
+        if (!await TestLocalPortConnection())
+        {
+            throw new Exception("端口转发验证失败");
         }
 
-        throw new Exception($"在 {maxRetries} 次重试后无法找到主机房间名称");
+        Console.WriteLine("端口转发验证成功");
     }
 
-    private async Task SetupPortForwarding(int remoteScfPort)
+    private async Task<bool> TestLocalPortConnection()
     {
         try
         {
-            // 先检查是否已存在相同的端口转发规则
-            var existingForwards = RunCliCommand("port-forward list");
-            if (!existingForwards.Contains($"{ScfServerPort}->{remoteScfPort}"))
+            Console.WriteLine($"测试本地端口连接: 127.0.0.1:{ScfServerPort}");
+            
+            using var client = new TcpClient();
+            var connectTask = client.ConnectAsync("127.0.0.1", ScfServerPort);
+            var timeoutTask = Task.Delay(5000);
+            
+            var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
             {
-                // 添加端口转发规则
-                var forwardResult =
-                    RunCliCommand($"port-forward add tcp 127.0.0.1:{ScfServerPort} 10.144.144.1:{remoteScfPort}");
-                Console.WriteLine($"端口转发设置结果: {forwardResult}");
-
-                // 验证端口转发
-                await Task.Delay(1000);
-                var verifyForwards = RunCliCommand("port-forward list");
-                Console.WriteLine($"当前端口转发规则: {verifyForwards}");
+                Console.WriteLine("本地端口连接超时");
+                return false;
             }
-            else
+            
+            await connectTask;
+            
+            if (client.Connected)
             {
-                Console.WriteLine("端口转发规则已存在，跳过设置");
+                Console.WriteLine("本地端口连接成功");
+                client.Close();
+                return true;
             }
-
-            Console.WriteLine($"端口转发就绪: 0.0.0.0:{ScfServerPort} -> 10.144.144.1:{remoteScfPort}");
+            
+            return false;
         }
         catch (Exception ex)
         {
-            throw new Exception($"设置端口转发失败: {ex.Message}");
+            Console.WriteLine($"本地端口连接异常: {ex.Message}");
+            return false;
         }
     }
 
     private async Task ConnectScfClientService()
     {
+        var maxRetries = 3;
+        
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                Console.WriteLine($"尝试连接 SCF 服务 (尝试 {attempt}/{maxRetries}): 127.0.0.1:{ScfServerPort}");
+
+                ClientService = new RoomScfClient("Dime");
+
+                var (success, minecraftPort, players) = 
+                    await ClientService.ExecuteStandardWorkflowAsync(IPAddress.Parse("127.0.0.1"), (ushort)ScfServerPort);
+
+                if (success)
+                {
+                    Console.WriteLine($"SCF 客户端连接成功! Minecraft 服务器端口: {minecraftPort}");
+                    if (players != null && players.Count > 0)
+                    {
+                        Console.WriteLine($"在线玩家: {string.Join(", ", players.Select(p => p))}");
+                    }
+
+                    // 启动输出监控
+                    EasytierProcess.OutputDataReceived += (sender, args) => Console.WriteLine(args.Data);
+                    EasytierProcess.BeginOutputReadLine();
+                    EasytierProcess.BeginErrorReadLine();
+
+                    return;
+                }
+                else
+                {
+                    Console.WriteLine($"第 {attempt} 次连接失败");
+                    if (attempt < maxRetries)
+                    {
+                        await Task.Delay(3000);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"第 {attempt} 次连接异常: {ex.GetType().Name}: {ex.Message}");
+                if (attempt < maxRetries)
+                {
+                    await Task.Delay(3000);
+                }
+                else
+                {
+                    throw new Exception($"经过 {maxRetries} 次尝试后仍无法连接 SCF 服务: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    private string ExtractHostNameFromOutput(string output)
+    {
+        // 从日志输出中提取主机名
+        // 示例日志: "new peer added. peer_id: 123456, hostname: scaffolding-mc-server-13448"
+        
+        var match = System.Text.RegularExpressions.Regex.Match(output, @"scaffolding-mc-server-\d+");
+        if (match.Success)
+        {
+            return match.Value;
+        }
+
+        // 如果正则匹配失败，尝试从对等节点信息中获取
         try
         {
-            Console.WriteLine($"尝试连接 SCF 服务: 127.0.0.1:{ScfServerPort}");
+            var peerOutput = RunCliCommand("peer");
+            var peerLines = peerOutput.Split('\n');
+            
+            var hostLine = peerLines.FirstOrDefault(x =>
+                x.Contains("scaffolding-mc-server") && !x.Contains("offline"));
 
-            ClientService = new RoomScfClient("Dime");
-
-            var connectTask =
-                ClientService.ExecuteStandardWorkflowAsync(IPAddress.Parse("127.0.0.1"), (ushort)ScfServerPort);
-
-            var completedTask = await Task.WhenAny(connectTask);
-
-            // 确保连接任务完成
-            await connectTask;
-
-            Console.WriteLine("SCF 客户端连接成功");
+            if (!string.IsNullOrEmpty(hostLine))
+            {
+                var parts = hostLine.Split('|');
+                if (parts.Length >= 3)
+                {
+                    var hostName = parts[2].Trim();
+                    if (!string.IsNullOrEmpty(hostName) && hostName.StartsWith("scaffolding-mc-server"))
+                    {
+                        return hostName;
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"SCF 客户端连接异常: {ex.GetType().Name}: {ex.Message}");
-            throw new Exception($"连接 SCF 客户端服务失败: {ex.Message}");
+            Console.WriteLine($"从对等节点信息获取主机名失败: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    private async Task StopEasyTierProcess()
+    {
+        if (EasytierProcess != null && !EasytierProcess.HasExited)
+        {
+            try
+            {
+                EasytierProcess.Kill();
+                await EasytierProcess.WaitForExitAsync();
+                await Task.Delay(1000); // 确保进程完全退出
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"停止 EasyTier 进程时出错: {ex.Message}");
+            }
+        }
+
+        // 清理可能残留的进程
+        foreach (var process in Process.GetProcessesByName("easytier-core"))
+        {
+            try
+            {
+                process.Kill();
+                process.WaitForExit();
+            }
+            catch
+            {
+                // 忽略清理错误
+            }
         }
     }
 
@@ -312,7 +385,6 @@ public class RoomCore
     {
         try
         {
-            // 更健壮的端口解析
             var parts = HostHomeName.Split('-');
             if (parts.Length >= 4 && int.TryParse(parts[3], out int port))
             {
@@ -331,9 +403,7 @@ public class RoomCore
     private string RunCliCommand(string command)
     {
         if (!IsRunning) throw new NullReferenceException("请确保房间开启");
-        if (Process.GetProcessesByName("easytier-core").Length <= 0)
-            throw new NullReferenceException("请确保房间开启");
-
+        
         var proc = new Process()
         {
             StartInfo = new ProcessStartInfo()
@@ -348,10 +418,8 @@ public class RoomCore
         };
 
         proc.Start();
-        IsRunning = true;
 
         var sb = new StringBuilder();
-
         proc.OutputDataReceived += (sender, args) => { sb.AppendLine(args.Data); };
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
