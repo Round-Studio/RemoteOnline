@@ -46,7 +46,7 @@ public class RoomCore
             {
                 FileName = EasyTierPath,
                 Arguments =
-                    $"--network-name \"{codeBody.NetworkName}\" --network-secret \"{codeBody.NetworkKey}\" --hostname \"{HostHomeName}\" -p tcp://public.easytier.top:11010 --dhcp --ipv4 10.144.144.1 --no-tun --compression=zstd --multi-thread --latency-first --enable-kcp-proxy",
+                    $"--network-name \"{codeBody.NetworkName}\" --network-secret \"{codeBody.NetworkKey}\" --hostname \"{HostHomeName}\" -p tcp://public.easytier.top:11010 --ipv4 10.144.144.1 --no-tun --compression=zstd --multi-thread --latency-first --enable-kcp-proxy",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,

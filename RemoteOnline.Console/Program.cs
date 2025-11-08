@@ -14,8 +14,6 @@ class Program
         core.EasyTierCliPath = "easytier-cli.exe";
         core.HostPlayerName = "Dime";
         core.HostMachineId = "aaa";
-        // await core.CreateRoom(25565);
-        
-        await core.ConnectRoom("U/TXVN-65UU-EEGH-HGBV");
+        await core.CreateRoom(25565);
     }
 }
