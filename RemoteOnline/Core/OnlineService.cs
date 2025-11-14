@@ -46,7 +46,7 @@ public class OnlineService
         Key = key;
         RemotePort = RomPort;
         
-        Console.WriteLine($"本地端口：{LocalPort}");
+        Console.WriteLine($@"本地端口：{LocalPort}");
     }
 
     public void Stop()
@@ -79,7 +79,7 @@ public class OnlineService
                 
                 EasytierProcess.Start();
                 
-                Console.WriteLine($"联机码：{OnlineCode}");
+                Console.WriteLine($@"联机码：{OnlineCode}");
                 IsRunning = true;
                 
                 EasytierProcess.OutputDataReceived +=  (sender, args) => Console.WriteLine(args.Data);

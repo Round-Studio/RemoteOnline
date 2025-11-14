@@ -130,7 +130,7 @@ public class RoomScfClient : IDisposable
 
             if (bytesRead < 5)
             {
-                Console.WriteLine("响应头不完整");
+                Console.WriteLine(@"响应头不完整");
                 return false;
             }
 
@@ -144,7 +144,7 @@ public class RoomScfClient : IDisposable
                 Array.Reverse(lengthBytes);
             uint bodyLength = BitConverter.ToUInt32(lengthBytes, 0);
 
-            Console.WriteLine($"收到ping响应: 状态={status}, 体长度={bodyLength}");
+            Console.WriteLine($@"收到ping响应: 状态={status}, 体长度={bodyLength}");
 
             // 如果响应体有数据，读取它
             if (bodyLength > 0)
@@ -159,7 +159,7 @@ public class RoomScfClient : IDisposable
                 }
 
                 var responseData = Encoding.UTF8.GetString(bodyBuffer, 0, totalRead);
-                Console.WriteLine($"ping响应数据: {responseData}");
+                Console.WriteLine($@"ping响应数据: {responseData}");
 
                 // 验证ping响应是否正确
                 return responseData == "ping_test";
@@ -169,7 +169,7 @@ public class RoomScfClient : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"协议ping测试异常: {ex.Message}");
+            Console.WriteLine($@"协议ping测试异常: {ex.Message}");
             return false;
         }
     }
@@ -210,7 +210,7 @@ public class RoomScfClient : IDisposable
             packet.AddRange(requestBody);
         }
 
-        Console.WriteLine($"构建SCF请求包: 协议={protocol}, 体长度={requestBody?.Length ?? 0}, 总包长度={packet.Count}");
+        Console.WriteLine($@"构建SCF请求包: 协议={protocol}, 体长度={requestBody?.Length ?? 0}, 总包长度={packet.Count}");
         return packet.ToArray();
     }
 
@@ -232,7 +232,7 @@ public class RoomScfClient : IDisposable
 
             if (completedTask == timeoutTask)
             {
-                Console.WriteLine("TCP连接超时");
+                Console.WriteLine(@"TCP连接超时");
                 return false;
             }
 
@@ -240,7 +240,7 @@ public class RoomScfClient : IDisposable
 
             if (client.Connected)
             {
-                Console.WriteLine("TCP连接成功");
+                Console.WriteLine(@"TCP连接成功");
                 return true;
             }
 
@@ -248,7 +248,7 @@ public class RoomScfClient : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"TCP连接测试异常: {ex.Message}");
+            Console.WriteLine($@"TCP连接测试异常: {ex.Message}");
             return false;
         }
     }
@@ -258,18 +258,18 @@ public class RoomScfClient : IDisposable
     /// </summary>
     private async Task<bool> WaitForConnectionAsync()
     {
-        Console.WriteLine($"开始ping联机中心 {_serverIp}:{_scfPort}，最多尝试 {_maxPingRetries} 次...");
+        Console.WriteLine($@"开始ping联机中心 {_serverIp}:{_scfPort}，最多尝试 {_maxPingRetries} 次...");
 
         for (int attempt = 1; attempt <= _maxPingRetries; attempt++)
         {
             try
             {
-                Console.WriteLine($"ping尝试 {attempt}/{_maxPingRetries}...");
+                Console.WriteLine($@"ping尝试 {attempt}/{_maxPingRetries}...");
 
                 // 首先测试基本TCP连接
                 if (!await TestBasicConnectionAsync())
                 {
-                    Console.WriteLine($"第 {attempt} 次TCP连接失败");
+                    Console.WriteLine($@"第 {attempt} 次TCP连接失败");
                     if (attempt < _maxPingRetries)
                     {
                         await Task.Delay(_pingIntervalMs);
@@ -284,17 +284,17 @@ public class RoomScfClient : IDisposable
 
                 if (await TestProtocolPingAsync(client))
                 {
-                    Console.WriteLine($"第 {attempt} 次协议ping成功，联机中心已就绪");
+                    Console.WriteLine($@"第 {attempt} 次协议ping成功，联机中心已就绪");
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"第 {attempt} 次协议ping失败");
+                    Console.WriteLine($@"第 {attempt} 次协议ping失败");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"第 {attempt} 次ping异常: {ex.Message}");
+                Console.WriteLine($@"第 {attempt} 次ping异常: {ex.Message}");
             }
 
             // 如果不是最后一次尝试，等待间隔
@@ -304,7 +304,7 @@ public class RoomScfClient : IDisposable
             }
         }
 
-        Console.WriteLine($"在 {_maxPingRetries} 次尝试后仍无法连接到联机中心");
+        Console.WriteLine($@"在 {_maxPingRetries} 次尝试后仍无法连接到联机中心");
         return false;
     }
 
@@ -326,14 +326,14 @@ public class RoomScfClient : IDisposable
             // 1. 持续ping直到连接成功
             if (!await WaitForConnectionAsync())
             {
-                Console.WriteLine("无法连接到联机中心");
+                Console.WriteLine(@"无法连接到联机中心");
                 return false;
             }
 
             // 2. 发送初始心跳
             if (!await SendPlayerPingAsync())
             {
-                Console.WriteLine("初始心跳发送失败");
+                Console.WriteLine(@"初始心跳发送失败");
                 return false;
             }
 
@@ -341,7 +341,7 @@ public class RoomScfClient : IDisposable
             var commonProtocols = await NegotiateProtocolsAsync();
             if (commonProtocols.Count == 0)
             {
-                Console.WriteLine("没有共同的协议支持");
+                Console.WriteLine(@"没有共同的协议支持");
                 return false;
             }
 
@@ -349,12 +349,12 @@ public class RoomScfClient : IDisposable
             StartHeartbeat();
 
             _isConnected = true;
-            Console.WriteLine($"成功连接到联机中心 {serverIp}:{scfPort}");
+            Console.WriteLine($@"成功连接到联机中心 {serverIp}:{scfPort}");
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"连接失败: {ex.Message}");
+            Console.WriteLine($@"连接失败: {ex.Message}");
             return false;
         }
     }
@@ -506,7 +506,7 @@ public class RoomScfClient : IDisposable
                         commonProtocols.Add(protocol);
                 }
 
-                Console.WriteLine($"协议协商成功，共同支持 {commonProtocols.Count} 个协议");
+                Console.WriteLine($@"协议协商成功，共同支持 {commonProtocols.Count} 个协议");
                 return commonProtocols;
             }
 
@@ -514,7 +514,7 @@ public class RoomScfClient : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"协议协商失败: {ex.Message}");
+            Console.WriteLine($@"协议协商失败: {ex.Message}");
             return new HashSet<string>();
         }
     }
@@ -542,7 +542,7 @@ public class RoomScfClient : IDisposable
             }
             else if (response.Status == 32)
             {
-                Console.WriteLine("Minecraft服务器未启动");
+                Console.WriteLine(@"Minecraft服务器未启动");
                 return null;
             }
             else
@@ -552,7 +552,7 @@ public class RoomScfClient : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"获取服务器端口失败: {ex.Message}");
+            Console.WriteLine($@"获取服务器端口失败: {ex.Message}");
             return null;
         }
     }
@@ -582,18 +582,18 @@ public class RoomScfClient : IDisposable
 
             if (response.Status == 0)
             {
-                Console.WriteLine($"心跳发送成功: {_playerName}");
+                Console.WriteLine($@"心跳发送成功: {_playerName}");
                 return true;
             }
             else
             {
-                Console.WriteLine($"心跳发送失败，状态码: {response.Status}");
+                Console.WriteLine($@"心跳发送失败，状态码: {response.Status}");
                 return false;
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"心跳发送异常: {ex.Message}");
+            Console.WriteLine($@"心跳发送异常: {ex.Message}");
             return false;
         }
     }
@@ -617,18 +617,18 @@ public class RoomScfClient : IDisposable
                 };
 
                 var playerProfiles = JsonSerializer.Deserialize<List<PlayerProfile>>(json, jsonOptions);
-                Console.WriteLine($"获取到 {playerProfiles?.Count ?? 0} 个玩家信息");
+                Console.WriteLine($@"获取到 {playerProfiles?.Count ?? 0} 个玩家信息");
                 return playerProfiles ?? new List<PlayerProfile>();
             }
             else
             {
-                Console.WriteLine($"获取玩家列表失败，状态码: {response.Status}");
+                Console.WriteLine($@"获取玩家列表失败，状态码: {response.Status}");
                 return new List<PlayerProfile>();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"获取玩家列表异常: {ex.Message}");
+            Console.WriteLine($@"获取玩家列表异常: {ex.Message}");
             return new List<PlayerProfile>();
         }
     }
@@ -660,7 +660,7 @@ public class RoomScfClient : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"心跳循环异常: {ex.Message}");
+            Console.WriteLine($@"心跳循环异常: {ex.Message}");
         }
     }
 
@@ -688,7 +688,7 @@ public class RoomScfClient : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"标准联机流程执行失败: {ex.Message}");
+            Console.WriteLine($@"标准联机流程执行失败: {ex.Message}");
             return (false, null, new List<PlayerProfile>());
         }
     }
@@ -701,7 +701,7 @@ public class RoomScfClient : IDisposable
         _isConnected = false;
         _heartbeatTimer?.Dispose();
         _heartbeatTimer = null;
-        Console.WriteLine("已断开与联机中心的连接");
+        Console.WriteLine(@"已断开与联机中心的连接");
     }
 
     public void Dispose()

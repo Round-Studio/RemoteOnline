@@ -57,7 +57,7 @@ public class RoomCore
         EasytierProcess.Start();
 
         IsRunning = true;
-        Console.WriteLine($"联机码：{RoomCode}");
+        Console.WriteLine($@"联机码：{RoomCode}");
 
         EasytierProcess.OutputDataReceived += (sender, args) => Console.WriteLine(args.Data);
         EasytierProcess.BeginOutputReadLine();
@@ -91,7 +91,7 @@ public class RoomCore
 
     private async Task StartEasyTierConnection(RoomCode codeBody)
     {
-        Console.WriteLine("启动 EasyTier 基础连接...");
+        Console.WriteLine(@"启动 EasyTier 基础连接...");
 
         // 先清理可能存在的旧进程
         await StopEasyTierProcess();
@@ -113,12 +113,12 @@ public class RoomCore
         EasytierProcess.Start();
         IsRunning = true;
 
-        Console.WriteLine("EasyTier 基础连接已启动");
+        Console.WriteLine(@"EasyTier 基础连接已启动");
     }
 
     private async Task WaitForHostConnection()
     {
-        Console.WriteLine("等待主机连接...");
+        Console.WriteLine(@"等待主机连接...");
 
         var hostFoundTaskCompletionSource = new TaskCompletionSource<bool>();
         var timeoutTask = Task.Delay(30000); // 30秒超时
@@ -132,7 +132,7 @@ public class RoomCore
                 // 检测到服务器节点
                 if (args.Data.Contains("new peer added"))
                 {
-                    Console.WriteLine("检测到服务器节点，开始解析主机信息...");
+                    Console.WriteLine(@"检测到服务器节点，开始解析主机信息...");
                     
                     // 解析主机名称
                     try
@@ -140,13 +140,13 @@ public class RoomCore
                         HostHomeName = ExtractHostNameFromOutput(args.Data);
                         if (!string.IsNullOrEmpty(HostHomeName))
                         {
-                            Console.WriteLine($"发现主机: {HostHomeName}");
+                            Console.WriteLine($@"发现主机: {HostHomeName}");
                             hostFoundTaskCompletionSource.TrySetResult(true);
                         }
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"解析主机信息失败: {ex.Message}");
+                        Console.WriteLine($@"解析主机信息失败: {ex.Message}");
                     }
                 }
             }
@@ -178,11 +178,11 @@ public class RoomCore
 
     private async Task RestartEasyTierWithPortForwarding(RoomCode codeBody)
     {
-        Console.WriteLine("重启 EasyTier 并设置端口转发...");
+        Console.WriteLine(@"重启 EasyTier 并设置端口转发...");
 
         // 获取 SCF 服务器端口
         int scfPort = GetHostNamePort();
-        Console.WriteLine($"SCF 服务器端口: {scfPort}");
+        Console.WriteLine($@"SCF 服务器端口: {scfPort}");
 
         // 停止当前进程
         await StopEasyTierProcess();
@@ -205,7 +205,7 @@ public class RoomCore
         EasytierProcess.Start();
         IsRunning = true;
 
-        Console.WriteLine($"EasyTier 已重启，端口转发: 127.0.0.1:{ScfServerPort} -> 10.144.144.1:{scfPort}");
+        Console.WriteLine($@"EasyTier 已重启，端口转发: 127.0.0.1:{ScfServerPort} -> 10.144.144.1:{scfPort}");
 
         // 等待进程启动和网络稳定
         await Task.Delay(20000);
@@ -216,14 +216,14 @@ public class RoomCore
             throw new Exception("端口转发验证失败");
         }
 
-        Console.WriteLine("端口转发验证成功");
+        Console.WriteLine(@"端口转发验证成功");
     }
 
     private async Task<bool> TestLocalPortConnection()
     {
         try
         {
-            Console.WriteLine($"测试本地端口连接: 127.0.0.1:{ScfServerPort}");
+            Console.WriteLine($@"测试本地端口连接: 127.0.0.1:{ScfServerPort}");
             
             using var client = new TcpClient();
             var connectTask = client.ConnectAsync("127.0.0.1", ScfServerPort);
@@ -233,7 +233,7 @@ public class RoomCore
             
             if (completedTask == timeoutTask)
             {
-                Console.WriteLine("本地端口连接超时");
+                Console.WriteLine(@"本地端口连接超时");
                 return false;
             }
             
@@ -241,7 +241,7 @@ public class RoomCore
             
             if (client.Connected)
             {
-                Console.WriteLine("本地端口连接成功");
+                Console.WriteLine(@"本地端口连接成功");
                 client.Close();
                 return true;
             }
@@ -250,7 +250,7 @@ public class RoomCore
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"本地端口连接异常: {ex.Message}");
+            Console.WriteLine($@"本地端口连接异常: {ex.Message}");
             return false;
         }
     }
@@ -263,7 +263,7 @@ public class RoomCore
         {
             try
             {
-                Console.WriteLine($"尝试连接 SCF 服务 (尝试 {attempt}/{maxRetries}): 127.0.0.1:{ScfServerPort}");
+                Console.WriteLine($@"尝试连接 SCF 服务 (尝试 {attempt}/{maxRetries}): 127.0.0.1:{ScfServerPort}");
 
                 ClientService = new RoomScfClient("Dime");
 
@@ -272,10 +272,10 @@ public class RoomCore
 
                 if (success)
                 {
-                    Console.WriteLine($"SCF 客户端连接成功! Minecraft 服务器端口: {minecraftPort}");
+                    Console.WriteLine($@"SCF 客户端连接成功! Minecraft 服务器端口: {minecraftPort}");
                     if (players != null && players.Count > 0)
                     {
-                        Console.WriteLine($"在线玩家: {string.Join(", ", players.Select(p => p))}");
+                        Console.WriteLine($@"在线玩家: {string.Join(", ", players.Select(p => p))}");
                     }
 
                     // 启动输出监控
@@ -287,7 +287,7 @@ public class RoomCore
                 }
                 else
                 {
-                    Console.WriteLine($"第 {attempt} 次连接失败");
+                    Console.WriteLine($@"第 {attempt} 次连接失败");
                     if (attempt < maxRetries)
                     {
                         await Task.Delay(3000);
@@ -296,7 +296,7 @@ public class RoomCore
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"第 {attempt} 次连接异常: {ex.GetType().Name}: {ex.Message}");
+                Console.WriteLine($@"第 {attempt} 次连接异常: {ex.GetType().Name}: {ex.Message}");
                 if (attempt < maxRetries)
                 {
                     await Task.Delay(3000);
@@ -344,7 +344,7 @@ public class RoomCore
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"从对等节点信息获取主机名失败: {ex.Message}");
+            Console.WriteLine($@"从对等节点信息获取主机名失败: {ex.Message}");
         }
 
         return null;
@@ -362,7 +362,7 @@ public class RoomCore
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"停止 EasyTier 进程时出错: {ex.Message}");
+                Console.WriteLine($@"停止 EasyTier 进程时出错: {ex.Message}");
             }
         }
 
@@ -395,7 +395,7 @@ public class RoomCore
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"解析主机端口失败: {ex.Message}");
+            Console.WriteLine($@"解析主机端口失败: {ex.Message}");
             throw new Exception($"无法从主机名 {HostHomeName} 解析端口");
         }
     }

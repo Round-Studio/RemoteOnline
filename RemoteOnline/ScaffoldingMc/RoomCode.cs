@@ -104,7 +104,7 @@ public class RoomCode
 
             if (ValidateRoomCode(fullCode))
             {
-                Console.WriteLine($"生成成功，尝试次数: {attempts}");
+                Console.WriteLine($@"生成成功，尝试次数: {attempts}");
                 return new RoomCode(part1, part2, part3, part4);
             }
         }
@@ -132,13 +132,13 @@ public class RoomCode
             
             if (part4 != null)
             {
-                Console.WriteLine($"智能生成成功，尝试次数: {attempts}");
+                Console.WriteLine($@"智能生成成功，尝试次数: {attempts}");
                 return new RoomCode(part1, part2, part3, part4);
             }
         }
 
         // 如果智能方法失败，回退到随机方法
-        Console.WriteLine("智能生成失败，使用随机方法...");
+        Console.WriteLine(@"智能生成失败，使用随机方法...");
         return GenerateCode();
     }
 

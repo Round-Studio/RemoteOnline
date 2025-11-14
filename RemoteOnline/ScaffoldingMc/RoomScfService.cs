@@ -80,7 +80,7 @@ public class RoomScfService : IDisposable
                 lastPingTime = DateTime.UtcNow
             };
 
-            Console.WriteLine($"设置房主: {_hostPlayerName} (ID: {_hostMachineId})");
+            Console.WriteLine($@"设置房主: {_hostPlayerName} (ID: {_hostMachineId})");
         }
     }
 
@@ -129,7 +129,7 @@ public class RoomScfService : IDisposable
 
             _hostMachineId = null;
             _hostPlayerName = null;
-            Console.WriteLine("房主状态已移除");
+            Console.WriteLine(@"房主状态已移除");
         }
     }
 
@@ -157,11 +157,11 @@ public class RoomScfService : IDisposable
                 _hostPlayerName = targetPlayer.name;
                 targetPlayer.kind = "HOST";
 
-                Console.WriteLine($"房主权限已转移给: {_hostPlayerName} (ID: {_hostMachineId})");
+                Console.WriteLine($@"房主权限已转移给: {_hostPlayerName} (ID: {_hostMachineId})");
                 return true;
             }
 
-            Console.WriteLine($"转移房主失败: 未找到玩家 {targetMachineId}");
+            Console.WriteLine($@"转移房主失败: 未找到玩家 {targetMachineId}");
             return false;
         }
     }
@@ -206,7 +206,7 @@ public class RoomScfService : IDisposable
                 _players[machineId].name = _hostPlayerName;
             }
 
-            Console.WriteLine($"强制设置房主: {_hostPlayerName} (ID: {_hostMachineId})");
+            Console.WriteLine($@"强制设置房主: {_hostPlayerName} (ID: {_hostMachineId})");
         }
     }
 
@@ -227,15 +227,15 @@ public class RoomScfService : IDisposable
         try
         {
             _listener.Start();
-            Console.WriteLine($"SCF服务器启动在端口 {_port}");
-            Console.WriteLine($"联机中心Hostname: scaffolding-mc-server-{_port}");
-            Console.WriteLine($"房主玩家: {_hostPlayerName} (ID: {_hostMachineId})");
+            Console.WriteLine($@"SCF服务器启动在端口 {_port}");
+            Console.WriteLine($@"联机中心Hostname: scaffolding-mc-server-{_port}");
+            Console.WriteLine($@"房主玩家: {_hostPlayerName} (ID: {_hostMachineId})");
 
             await AcceptConnectionsAsync();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"服务器启动失败: {ex.Message}");
+            Console.WriteLine($@"服务器启动失败: {ex.Message}");
             throw;
         }
     }
@@ -247,7 +247,7 @@ public class RoomScfService : IDisposable
     {
         _cancellationTokenSource?.Cancel();
         _listener?.Stop();
-        Console.WriteLine("SCF服务器已停止");
+        Console.WriteLine(@"SCF服务器已停止");
     }
 
     private async Task AcceptConnectionsAsync()
@@ -266,7 +266,7 @@ public class RoomScfService : IDisposable
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"接受连接时出错: {ex.Message}");
+                Console.WriteLine($@"接受连接时出错: {ex.Message}");
             }
         }
     }
@@ -289,7 +289,7 @@ public class RoomScfService : IDisposable
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"处理客户端时出错: {ex.Message}");
+                Console.WriteLine($@"处理客户端时出错: {ex.Message}");
             }
         }
     }
@@ -351,7 +351,7 @@ public class RoomScfService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"读取请求时出错: {ex.Message}");
+            Console.WriteLine($@"读取请求时出错: {ex.Message}");
             return null;
         }
     }
@@ -379,7 +379,7 @@ public class RoomScfService : IDisposable
     {
         try
         {
-            Console.WriteLine($"处理请求: {request.Type}");
+            Console.WriteLine($@"处理请求: {request.Type}");
 
             if (_supportedProtocols.Contains(request.Type))
             {
@@ -400,7 +400,7 @@ public class RoomScfService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"处理请求 {request.Type} 时出错: {ex.Message}");
+            Console.WriteLine($@"处理请求 {request.Type} 时出错: {ex.Message}");
             return new ScfResponse { Status = 255, Body = Encoding.UTF8.GetBytes(ex.Message) };
         }
     }
@@ -477,7 +477,7 @@ public class RoomScfService : IDisposable
                 }
 
                 Console.WriteLine(
-                    $"玩家心跳: {playerData.name} ({playerData.machine_id}) - {(_players[playerData.machine_id].kind == "HOST" ? "房主" : "访客")}");
+                    $@"玩家心跳: {playerData.name} ({playerData.machine_id}) - {(_players[playerData.machine_id].kind == "HOST" ? "房主" : "访客")}");
             }
 
             return Task.FromResult(new ScfResponse
@@ -515,7 +515,7 @@ public class RoomScfService : IDisposable
             foreach (var machineId in expiredPlayers)
             {
                 _players.Remove(machineId);
-                Console.WriteLine($"清理超时玩家: {machineId}");
+                Console.WriteLine($@"清理超时玩家: {machineId}");
             }
 
             // 构建响应 - 使用更兼容的JSON序列化方式
@@ -546,12 +546,12 @@ public class RoomScfService : IDisposable
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"JSON序列化失败: {ex.Message}");
+                Console.WriteLine($@"JSON序列化失败: {ex.Message}");
                 // 回退到手动构建JSON
                 json = BuildManualJson(playerList);
             }
 
-            Console.WriteLine($"返回玩家列表JSON: {json}"); // 调试日志
+            Console.WriteLine($@"返回玩家列表JSON: {json}"); // 调试日志
 
             return Task.FromResult(new ScfResponse
             {
@@ -630,7 +630,7 @@ public class RoomScfService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"发送响应时出错: {ex.Message}");
+            Console.WriteLine($@"发送响应时出错: {ex.Message}");
         }
     }
 
